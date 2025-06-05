@@ -1,21 +1,15 @@
-# 🧊 This project is archived and no longer developed or maintained. 🧊
-
-The code remains available for historic purposes.
-
-The README as of the archival date remains unchanged below for historic purposes.
-
------
-
 # kaniko - Build Images In Kubernetes
 
-## 🚨NOTE: kaniko is not an officially supported Google product🚨
-
-[![Unit tests](https://github.com/GoogleContainerTools/kaniko/actions/workflows/unit-tests.yaml/badge.svg)](https://github.com/GoogleContainerTools/kaniko/actions/workflows/unit-tests.yaml)
-[![Integration tests](https://github.com/GoogleContainerTools/kaniko/actions/workflows/integration-tests.yaml/badge.svg)](https://github.com/GoogleContainerTools/kaniko/actions/workflows/integration-tests.yaml)
-[![Build images](https://github.com/GoogleContainerTools/kaniko/actions/workflows/images.yaml/badge.svg)](https://github.com/GoogleContainerTools/kaniko/actions/workflows/images.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/GoogleContainerTools/kaniko)](https://goreportcard.com/report/github.com/GoogleContainerTools/kaniko)
-
 ![kaniko logo](logo/Kaniko-Logo.png)
+
+> **NOTE** This is a supported fork of the original GoogleContainerTools/kaniko repository, which was archived in June of 2025.
+
+> Chainguard is going to keep this fork updated, patched, and maintained.
+> We do not plan any major feature work, but bug fixes and other minor contributions are welcome!
+> We don't plan on publishing built release artifacts (container images, etc.) publicly, but they are available to Chainguard customers.
+> You're welcome to build these yourself from this repository if you are not a Chainguard customer.
+> If a community-supported fork emerges, we'll happily shut this one down and migrate to that.
+> If you're interested in helping there, also reach out!
 
 kaniko is a tool to build container images from a Dockerfile, inside a container
 or Kubernetes cluster.
