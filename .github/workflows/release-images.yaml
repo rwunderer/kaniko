@@ -1,0 +1,132 @@
+name: Build images
+
+on:
+  push:
+    branches: [ 'main' ]
+    # Publish semver tags as releases.
+    tags: [ 'v*.*.*' ]
+
+permissions: {}
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-images:
+    concurrency:
+      # If a previous run is ongoing with the same head_ref (it's a run on the
+      # same PR) then cancel it to save time. If it isn't a PR, only cancel the
+      # previous run if it's on the same commit SHA. This prevents a run for a
+      # commit push from cancelling a previous commit push's build, since we
+      # want an image built and tagged for each commit.
+      group: build-images-${{ matrix.image }}-${{ github.head_ref || github.sha }}
+      cancel-in-progress: true
+
+    permissions:
+      contents: read  # Read the repo contents.
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - executor
+          - executor-debug
+          - executor-slim
+          - warmer
+
+        include:
+          - image: executor
+            target: kaniko-executor
+            platforms: linux/amd64,linux/arm64
+            image-name: executor
+            tag: ${{ github.sha }}
+            release-tag: ""
+
+          - image: executor-debug
+            target: kaniko-debug
+            platforms: linux/amd64,linux/arm64
+            image-name: executor
+            tag: ${{ github.sha }}-debug
+            release-tag: -debug
+
+          - image: executor-slim
+            target: kaniko-slim
+            platforms: linux/amd64,linux/arm64
+            image-name: executor
+            tag: ${{ github.sha }}-slim
+            release-tag: -slim
+
+          - image: warmer
+            target: kaniko-warmer
+            platforms: linux/amd64,linux/arm64
+            image-name: warmer
+            tag: ${{ github.sha }}
+            release-tag: ""
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@002fdce3c6a235733a90a27c80493a3241e56863 # v2.12.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Don't build for all platforms on PRs.
+      - id: platforms
+        run: |
+          type="${{ github.ref_type }}"
+          if [[ "$type" == "branch" ]]; then
+            echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
+          else
+            platforms="${{ matrix.platforms }}"
+            echo "platforms=${platforms}" >> $GITHUB_OUTPUT
+          fi
+      # Build and push with Docker.
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+        with:
+          platforms: ${{ matrix.platforms }}
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5.7.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.image-name }}
+          flavor: |
+            suffix=${{ matrix.release-tag }}
+
+      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        id: build-and-push
+        with:
+          context: .
+          file: ./deploy/Dockerfile
+          platforms: ${{ steps.platforms.outputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          no-cache-filters: certs
+          # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          target: ${{ matrix.target }}
